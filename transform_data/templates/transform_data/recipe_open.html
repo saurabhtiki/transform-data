@@ -1,0 +1,15 @@
+{% extends base_template %}
+{% block title %}Open recipe{% endblock %}
+{% block content %}
+<div class="card mx-auto max-w-lg border border-base-300 bg-base-100">
+  <form method="post" class="card-body">
+    {% csrf_token %}<input type="hidden" name="id" value="{{ recipe_id }}">
+    <h1 class="card-title">Open this recipe?</h1>
+    <p class="text-base-content/70">Its steps will run on the tables you have uploaded.{% if has_steps %} <b>Your current steps will be replaced.</b>{% endif %}</p>
+    <div class="card-actions justify-end">
+      <a href="{% url 'transform_data:home' %}" class="btn btn-ghost">Cancel</a>
+      <button class="btn btn-primary" title="Run the recipe's steps on your tables">Open recipe</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

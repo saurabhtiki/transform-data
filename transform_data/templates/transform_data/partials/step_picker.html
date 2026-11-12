@@ -1,0 +1,23 @@
+<div class="flex items-center justify-between gap-2">
+  <h3 class="text-lg font-semibold">What would you like to do?</h3>
+  <button type="button" class="btn btn-ghost btn-sm" onclick="step_dialog.close()" aria-label="Close">✕</button>
+</div>
+<div class="mt-3 max-h-[70vh] space-y-4 overflow-y-auto pr-1" x-data="{ q: '' }">
+  <input type="search" class="input input-sm w-full" placeholder="Search steps, e.g. join, blank, date" x-model="q" autofocus title="Type part of a step's name or description">
+  {% for category, operations in groups %}
+  <section x-show="!q || $el.textContent.toLowerCase().includes(q.toLowerCase())">
+    <h4 class="mb-1 text-xs font-semibold uppercase tracking-wide text-base-content/60">{{ category }}</h4>
+    <div class="grid gap-1 sm:grid-cols-2">
+      {% for op in operations %}
+      <button type="button" class="rounded-field border border-base-300 p-2 text-left hover:border-primary hover:bg-primary/5"
+        x-show="!q || $el.textContent.toLowerCase().includes(q.toLowerCase())"
+        hx-get="{% url 'transform_data:step_form' %}?operation={{ op.operation }}&table={{ table|urlencode }}"
+        hx-target="#step-dialog-body" title="{{ op.summary }}">
+        <span class="block text-sm font-medium">{{ op.label }}</span>
+        <span class="line-clamp-2 block text-xs text-base-content/60">{{ op.summary }}</span>
+      </button>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>

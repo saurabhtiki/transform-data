@@ -1,0 +1,230 @@
+{% extends base_template %}
+{% load humanize %}
+{% block title %}Transform data{% endblock %}
+{% block content %}
+<div class="space-y-5">
+
+  {# ---------- title bar ---------- #}
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">Transform data</h1>
+      <p class="text-base-content/70">Upload files, add steps to clean and reshape them, then download Excel or JSON.</p>
+    </div>
+    {% if tables %}
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="dropdown dropdown-end">
+        <div tabindex="0" role="button" class="btn btn-sm" title="A recipe is your list of steps (no data). Save it once, load it next month on new files to repeat the same work.">Recipe ▾</div>
+        <ul tabindex="0" class="menu dropdown-content z-10 mt-1 w-64 rounded-box border border-base-300 bg-base-100 p-2 shadow">
+          <li><button type="button" onclick="recipe_save_dialog.showModal()" {% if not steps %}disabled class="opacity-50"{% endif %} title="{% if steps %}Keep these steps to use again later{% else %}Add a step first{% endif %}">Save steps as a recipe</button></li>
+          <li><button type="button" onclick="recipe_load_dialog.showModal()" title="Run saved steps on the tables you have uploaded">Load a recipe</button></li>
+        </ul>
+      </div>
+      <form method="post" action="{% url 'transform_data:start_over' %}" onsubmit="return confirm('Remove all your tables and steps?')">
+        {% csrf_token %}
+        <button class="btn btn-sm btn-ghost" title="Remove every table and step and start fresh">Start over</button>
+      </form>
+      <button type="button" class="btn btn-sm btn-primary" onclick="download_dialog.showModal()" title="Download tables as Excel or JSON">Download</button>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ---------- messages ---------- #}
+  {% if messages %}
+  <div class="space-y-2">
+    {% for message in messages %}
+    <div role="alert" class="alert alert-soft {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}" x-data="{ open: true }" x-show="open">
+      <span class="flex-1">{{ message }}</span>
+      <button type="button" class="btn btn-ghost btn-xs" @click="open = false" title="Hide this message">✕</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if not tables %}
+  {# ---------- first visit: one big, friendly upload box ---------- #}
+  <div class="card border border-base-300 bg-base-100">
+    <div class="card-body items-center py-12 text-center">
+      <h2 class="card-title text-xl">Start by uploading your data</h2>
+      <p class="max-w-xl text-base-content/70">CSV, Excel (.xlsx) or JSON. You can pick several files at once. Each Excel sheet becomes its own table.</p>
+      {% include "transform_data/partials/upload_form.html" with big=True %}
+      <ul class="mt-6 grid max-w-3xl gap-3 text-left text-sm text-base-content/70 sm:grid-cols-3">
+        <li class="rounded-box bg-base-200 p-3"><b class="text-base-content">Clean</b><br>Remove blanks and duplicates, fix types, trim spaces.</li>
+        <li class="rounded-box bg-base-200 p-3"><b class="text-base-content">Calculate</b><br>New columns with formulas like <code>[Sales] - [Cost]</code>.</li>
+        <li class="rounded-box bg-base-200 p-3"><b class="text-base-content">Combine & summarise</b><br>Join tables, group and total, pivot.</li>
+      </ul>
+    </div>
+  </div>
+  {% else %}
+
+  <div class="grid gap-5 lg:grid-cols-[22rem_minmax(0,1fr)]">
+    <aside class="space-y-5">
+      {# ---------- 1 · tables ---------- #}
+      <section class="card border border-base-300 bg-base-100">
+        <div class="card-body gap-3 p-4">
+          <h2 class="flex items-center gap-2 font-semibold"><span class="badge badge-primary badge-sm">1</span> Your tables</h2>
+          <ul class="space-y-1">
+            {% for table in tables %}
+            <li class="flex items-center gap-1">
+              <a href="?table={{ table.name|urlencode }}" class="flex min-w-0 flex-1 items-center gap-2 rounded-field px-2 py-1.5 hover:bg-base-200 {% if table.name == current.name %}bg-primary/10 font-medium{% endif %}" title="Show “{{ table.name }}” — {{ table.source_label }}">
+                <span class="text-xs" aria-hidden="true">{% if table.origin == "upload" %}📄{% else %}✨{% endif %}</span>
+                <span class="truncate">{{ table.name }}</span>
+                <span class="ml-auto shrink-0 text-xs text-base-content/60">{{ table.frame|length|intcomma }} × {{ table.frame.columns|length }}</span>
+              </a>
+              <button type="button" class="btn btn-ghost btn-xs btn-square" title="Profile: what each column holds (type, blanks, distinct values, smallest / largest)" aria-label="Profile of {{ table.name }}"
+                hx-get="{% url 'transform_data:table_profile' %}?table={{ table.name|urlencode }}"
+                hx-target="#profile-dialog-body" hx-on::after-request="profile_dialog.showModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path d="M15.5 2A1.5 1.5 0 0 0 14 3.5v13a1.5 1.5 0 0 0 1.5 1.5h1a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 16.5 2h-1ZM9.5 6A1.5 1.5 0 0 0 8 7.5v9A1.5 1.5 0 0 0 9.5 18h1a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 10.5 6h-1ZM3.5 10A1.5 1.5 0 0 0 2 11.5v5A1.5 1.5 0 0 0 3.5 18h1A1.5 1.5 0 0 0 6 16.5v-5A1.5 1.5 0 0 0 4.5 10h-1Z"/></svg>
+              </button>
+              {% if table.origin == "upload" %}
+              <form method="post" action="{% url 'transform_data:remove_table' %}" onsubmit="return confirm('Remove the table “{{ table.name|escapejs }}”?')">
+                {% csrf_token %}<input type="hidden" name="name" value="{{ table.name }}">
+                <button class="btn btn-ghost btn-xs" title="Remove this uploaded table" aria-label="Remove {{ table.name }}">✕</button>
+              </form>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+          <p class="text-xs text-base-content/60">📄 uploaded · ✨ made by a step · rows × columns</p>
+          <details class="collapse collapse-arrow rounded-field border border-base-300">
+            <summary class="collapse-title min-h-0 py-2 text-sm font-medium">Upload more files</summary>
+            <div class="collapse-content">{% include "transform_data/partials/upload_form.html" %}</div>
+          </details>
+        </div>
+      </section>
+
+      {# ---------- 2 · steps ---------- #}
+      <section class="card border border-base-300 bg-base-100">
+        <div class="card-body gap-3 p-4">
+          <h2 class="flex items-center gap-2 font-semibold"><span class="badge badge-primary badge-sm">2</span> Steps</h2>
+          {% if steps %}
+          <ol class="space-y-2">
+            {% for step in steps %}
+            <li class="rounded-field border {% if step.status == 'failed' or step.status == 'not run' %}border-error/40 bg-error/5{% elif step.status == 'warned' %}border-warning/50 bg-warning/5{% else %}border-base-300{% endif %} p-2">
+              <div class="flex items-start gap-2">
+                <span class="badge badge-sm {% if step.status == 'failed' or step.status == 'not run' %}badge-error{% elif step.status == 'warned' %}badge-warning{% else %}badge-ghost{% endif %} mt-0.5 shrink-0">{{ step.number }}</span>
+                <a href="?table={{ step.output|urlencode }}" class="min-w-0 flex-1 text-sm hover:underline" title="Show the table this step made or changed: {{ step.output }}">{{ step.headline }}</a>
+              </div>
+              {% if step.message %}<p class="mt-1 pl-8 text-xs {% if step.status == 'warned' %}text-warning-content{% else %}text-error{% endif %}">{{ step.message }}</p>{% endif %}
+              {% if step.last %}
+              <div class="mt-2 flex gap-1 pl-8">
+                <button type="button" class="btn btn-xs" title="Change this step's settings"
+                  hx-get="{% url 'transform_data:step_form' %}?operation={{ last_operation|urlencode }}&edit=1"
+                  hx-target="#step-dialog-body" hx-on::after-request="step_dialog.showModal()">Edit</button>
+                <form method="post" action="{% url 'transform_data:step_undo' %}">
+                  {% csrf_token %}<button class="btn btn-xs btn-ghost" title="Remove this step (the tables go back to how they were before it)">Undo</button>
+                </form>
+              </div>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ol>
+          {% else %}
+          <p class="text-sm text-base-content/70">No steps yet. Each step changes a table — for example “Remove duplicates” or “Add a calculated column”.</p>
+          {% endif %}
+          <button type="button" class="btn btn-primary btn-sm"
+            hx-get="{% url 'transform_data:step_picker' %}?table={{ current.name|urlencode }}"
+            hx-target="#step-dialog-body" hx-on::after-request="step_dialog.showModal()"
+            title="Choose what to do next, e.g. filter rows, join two tables or add a formula">+ Add a step</button>
+          {% if steps|length > 1 %}
+          <form method="post" action="{% url 'transform_data:steps_clear' %}" onsubmit="return confirm('Remove all {{ steps|length }} steps? Your uploaded tables stay as they are.')" class="text-center">
+            {% csrf_token %}<button class="link link-hover text-xs text-base-content/60" title="Remove every step; uploaded tables stay">Remove all steps</button>
+          </form>
+          {% endif %}
+        </div>
+      </section>
+    </aside>
+
+    {# ---------- 3 · preview ---------- #}
+    <section class="card min-w-0 border border-base-300 bg-base-100">
+      <div class="card-body gap-3 p-4">
+        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 class="flex items-center gap-2 font-semibold"><span class="badge badge-primary badge-sm">3</span> {{ current.name }}</h2>
+          <span class="text-sm text-base-content/60">{{ current.shape_label }} · {{ current.source_label }}</span>
+        </div>
+        {% if current.frame|length > preview_rows %}
+        <p class="text-xs text-base-content/60">Showing the first {{ preview_rows|intcomma }} rows. The download has all {{ current.frame|length|intcomma }}.</p>
+        {% endif %}
+        {% include "transform_data/partials/preview_table.html" %}
+      </div>
+    </section>
+  </div>
+  {% endif %}
+</div>
+
+{# ---------- dialogs ---------- #}
+<dialog id="profile_dialog" class="modal">
+  <div class="modal-box max-w-6xl" id="profile-dialog-body"><span class="loading loading-spinner"></span></div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+<dialog id="step_dialog" class="modal">
+  <div class="modal-box max-w-2xl" id="step-dialog-body"><span class="loading loading-spinner"></span></div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+{% if tables %}
+<dialog id="download_dialog" class="modal">
+  <div class="modal-box">
+    <h3 class="text-lg font-semibold">Download</h3>
+    <form method="get" action="{% url 'transform_data:download' %}" class="mt-3 space-y-4" onsubmit="setTimeout(() => download_dialog.close(), 300)">
+      <fieldset class="fieldset">
+        <legend class="fieldset-legend">Tables</legend>
+        {% for table in tables %}
+        <label class="label cursor-pointer justify-start gap-2 text-base-content">
+          <input type="checkbox" class="checkbox checkbox-sm" name="tables" value="{{ table.name }}" {% if table.name in download_names %}checked{% endif %}>
+          {{ table.name }} <span class="text-xs text-base-content/60">{{ table.frame|length|intcomma }} rows</span>
+        </label>
+        {% endfor %}
+        <p class="label">Ticked: the tables your steps made or changed.</p>
+      </fieldset>
+      <fieldset class="fieldset">
+        <legend class="fieldset-legend">Format</legend>
+        <div class="join">
+          <input class="join-item btn btn-sm" type="radio" name="format" value="xlsx" aria-label="Excel (.xlsx)" checked title="One sheet per table, plus a sheet listing your steps">
+          <input class="join-item btn btn-sm" type="radio" name="format" value="json" aria-label="JSON" title="For other programs: {&quot;table&quot;: [{row}, …]}">
+        </div>
+      </fieldset>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="download_dialog.close()">Cancel</button>
+        <button class="btn btn-primary">Download</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<dialog id="recipe_save_dialog" class="modal">
+  <div class="modal-box">
+    <h3 class="text-lg font-semibold">Save steps as a recipe</h3>
+    <p class="mt-1 text-sm text-base-content/70">A recipe keeps your {{ steps|length }} step{{ steps|length|pluralize }} — no data. Next time, upload the new files (with the same table names) and load the recipe.</p>
+    <form method="post" action="{% url 'transform_data:recipe_save' %}" class="mt-3" onsubmit="setTimeout(() => recipe_save_dialog.close(), 300)">
+      {% csrf_token %}
+      <label class="fieldset">
+        <span class="fieldset-legend">Recipe name</span>
+        <input class="input w-full" name="name" placeholder="Monthly sales clean-up" maxlength="100" required>
+      </label>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="recipe_save_dialog.close()">Cancel</button>
+        <button class="btn btn-primary">{% if recipe_hooks %}Save{% else %}Download recipe{% endif %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<dialog id="recipe_load_dialog" class="modal">
+  <div class="modal-box">
+    <h3 class="text-lg font-semibold">Load a recipe</h3>
+    <p class="mt-1 text-sm text-base-content/70">The recipe's steps run on the tables you have uploaded. Table names must match the ones the recipe was made with.{% if steps %} <b>Your current steps will be replaced.</b>{% endif %}</p>
+    <form method="post" action="{% url 'transform_data:recipe_load' %}" enctype="multipart/form-data" class="mt-3">
+      {% csrf_token %}
+      <input type="file" name="recipe" accept=".json" class="file-input w-full" required title="A .recipe.json file saved from this page">
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="recipe_load_dialog.close()">Cancel</button>
+        <button class="btn btn-primary">Load</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+{% endif %}
+{% endblock %}

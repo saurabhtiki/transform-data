@@ -1,0 +1,12 @@
+<form method="post" action="{% url 'transform_data:upload' %}" enctype="multipart/form-data"
+      class="{% if big %}mt-4 flex w-full max-w-xl flex-col gap-2 sm:flex-row{% else %}flex flex-col gap-2{% endif %}"
+      x-data="{ busy: false }" @submit="busy = true">
+  {% csrf_token %}
+  <input type="file" name="files" multiple required accept=".csv,.xlsx,.xlsm,.json,.jsonl"
+         class="file-input {% if big %}file-input-lg{% else %}file-input-sm{% endif %} w-full"
+         title="CSV, Excel (.xlsx) or JSON — up to {{ max_files }} files, {{ max_file_mb }} MB each">
+  <button class="btn btn-primary {% if big %}btn-lg{% else %}btn-sm{% endif %}" :disabled="busy" title="Read the files into tables (kept in memory only, never saved on the server)">
+    <span class="loading loading-spinner loading-sm" x-show="busy" x-cloak></span> Upload
+  </button>
+</form>
+<p class="mt-1 text-xs text-base-content/60">Up to {{ max_files }} files, {{ max_file_mb }} MB each. Your data is kept in memory only and cleared when you leave.</p>

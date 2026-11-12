@@ -1,0 +1,5 @@
+{% if error %}
+<p class="text-sm text-error">✗ {{ error }}</p>
+{% elif ok %}
+<p class="text-sm text-success">✓ Looks good — gives {{ kind }}.{% if examples %} <span class="text-base-content/70">For example: {{ examples|join:", " }}</span>{% endif %}</p>
+{% endif %}

@@ -1,0 +1,28 @@
+{% load humanize %}
+<div class="mb-3 flex items-start gap-2">
+  <div class="min-w-0 flex-1">
+    <h3 class="truncate text-lg font-semibold">{% if missing is not None %}Table not found{% else %}Profile of “{{ current.name }}”{% endif %}</h3>
+    {% if current.source_label %}<p class="truncate text-sm text-base-content/60">{{ current.source_label }}</p>{% endif %}
+  </div>
+  <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost" title="Close" aria-label="Close">✕</button></form>
+</div>
+{% if missing is not None %}
+<div role="alert" class="alert alert-soft alert-warning"><span>The table “{{ missing }}” is no longer there. Close this and pick a table from the list.</span></div>
+{% else %}
+<div class="stats stats-vertical mb-3 w-full border border-base-300 sm:stats-horizontal">
+  <div class="stat px-4 py-2" title="How many rows the table has"><div class="stat-title">Rows</div><div class="stat-value text-2xl">{{ profile.row_count|intcomma }}</div></div>
+  <div class="stat px-4 py-2" title="How many columns the table has"><div class="stat-title">Columns</div><div class="stat-value text-2xl">{{ profile.column_count|intcomma }}</div></div>
+  <div class="stat px-4 py-2" title="Empty cells across the whole table (a cell holding only spaces counts as empty)"><div class="stat-title">Blank cells</div><div class="stat-value text-2xl {% if profile.blank_cells %}text-warning{% endif %}">{{ profile.blank_cells|intcomma }}</div></div>
+  <div class="stat px-4 py-2" title="Rows that are an exact copy of an earlier row"><div class="stat-title">Duplicate rows</div><div class="stat-value text-2xl {% if profile.duplicate_rows %}text-warning{% endif %}">{{ profile.duplicate_rows|intcomma }}</div></div>
+</div>
+{% if profile.tips %}
+<div role="alert" class="alert alert-soft alert-warning mb-3 items-start">
+  <span aria-hidden="true">💡</span>
+  <div><p class="font-medium">Worth fixing</p>
+    <ul class="mt-1 list-disc space-y-0.5 pl-4 text-sm">{% for tip in profile.tips %}<li>{{ tip }}</li>{% endfor %}</ul>
+  </div>
+</div>
+{% endif %}
+{% include "transform_data/partials/profile_table.html" %}
+<p class="mt-2 text-xs text-base-content/60">“Looks like” is a guess from the values. “Distinct” = how many different values. Smallest / largest are shown for number and date columns.</p>
+{% endif %}

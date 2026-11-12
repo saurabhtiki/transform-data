@@ -1,0 +1,14 @@
+{% load humanize transform_data %}<tr>
+  <td class="max-w-48 truncate font-medium" title="{{ row.column }}">{{ row.column }}</td>
+  <td class="whitespace-nowrap">
+    <span class="badge badge-sm badge-ghost">{{ row.type }}</span>
+    {% if row.stored_as_text %}<span class="badge badge-sm badge-warning" title="The values look like {{ row.type|lower }}s but are kept as text. Add a “Change column type” step to fix it.">as text</span>{% endif %}
+  </td>
+  <td class="text-right tabular-nums">{{ row.filled|intcomma }}</td>
+  <td class="text-right tabular-nums {% if row.blank %}text-warning{% endif %}">{{ row.blank|intcomma }}</td>
+  <td class="text-right tabular-nums {% if row.blank %}text-warning{% endif %}">{{ row.blank_pct }}%</td>
+  <td class="text-right tabular-nums">{{ row.distinct|intcomma }}</td>
+  <td class="whitespace-nowrap">{{ row|cell:"smallest" }}</td>
+  <td class="whitespace-nowrap">{{ row|cell:"largest" }}</td>
+  <td class="max-w-64 truncate text-base-content/70" title="{{ row.examples }}">{{ row.examples }}</td>
+</tr>

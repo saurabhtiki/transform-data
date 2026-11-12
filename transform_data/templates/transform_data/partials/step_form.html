@@ -1,0 +1,144 @@
+{% load transform_data %}
+{% url 'transform_data:step_form' as redraw_url %}
+<form id="step-form" hx-post="{% url 'transform_data:step_save' %}" hx-target="#step-dialog-body" class="space-y-4" x-data="{ saving: false }" @htmx:before-request="if ($event.detail.elt === $el) saving = true" @htmx:after-request="saving = false">
+  {% csrf_token %}
+  <input type="hidden" name="operation" value="{{ form.spec.operation }}">
+  {% if form.editing %}<input type="hidden" name="edit" value="1">{% endif %}
+
+  <div class="flex items-start justify-between gap-2">
+    <div>
+      {% if not form.editing %}
+      <button type="button" class="link link-hover text-sm text-base-content/60" hx-get="{% url 'transform_data:step_picker' %}" hx-target="#step-dialog-body" title="Pick a different kind of step">← All steps</button>
+      {% endif %}
+      <h3 class="text-lg font-semibold">{% if form.editing %}Edit: {% endif %}{{ form.spec.label }}</h3>
+      <p class="text-sm text-base-content/70">{{ form.spec.summary }}</p>
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="step_dialog.close()" aria-label="Close">✕</button>
+  </div>
+
+  {% if error %}<div role="alert" class="alert alert-soft alert-error"><span>{{ error }}</span></div>{% endif %}
+
+  <div class="max-h-[60vh] space-y-1 overflow-y-auto pr-1">
+  {# ---- which table(s) ---- #}
+  {% for role in form.roles %}
+  <fieldset class="fieldset">
+    <legend class="fieldset-legend">{{ role.label }}</legend>
+    {% if role.multi %}
+      <div class="grid gap-1 sm:grid-cols-2" hx-post="{{ redraw_url }}" hx-trigger="change" hx-target="#step-dialog-body" hx-include="#step-form">
+        {% for name in form.table_names %}
+        <label class="label cursor-pointer justify-start gap-2 text-base-content">
+          <input type="checkbox" class="checkbox checkbox-sm" name="in_{{ role.name }}" value="{{ name }}" {% if role.selected|has:name %}checked{% endif %}> {{ name }}
+        </label>
+        {% endfor %}
+      </div>
+    {% else %}
+      <select name="in_{{ role.name }}" class="select w-full" title="{{ role.help }}"
+              hx-post="{{ redraw_url }}" hx-trigger="change" hx-target="#step-dialog-body" hx-include="#step-form">
+        {% for name in form.table_names %}<option value="{{ name }}" {% if role.selected|has:name %}selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select>
+    {% endif %}
+    <p class="label whitespace-normal">{{ role.help }}</p>
+  </fieldset>
+  {% endfor %}
+
+  {# ---- the step's own settings ---- #}
+  {% for field in form.fields %}
+  <fieldset class="fieldset">
+    <legend class="fieldset-legend">{{ field.spec.label }}{% if not field.spec.required %} <span class="font-normal text-base-content/50">(optional)</span>{% endif %}</legend>
+
+    {% if field.kind == "column" or field.kind == "choice" %}
+      <select name="{{ field.input_name }}" class="select w-full" title="{{ field.spec.help }}"
+        {% if field.refresh %}hx-post="{{ redraw_url }}" hx-trigger="change" hx-target="#step-dialog-body" hx-include="#step-form"{% endif %}>
+        {% if field.kind == "column" %}<option value="" {% if not field.selected %}selected{% endif %}>{% if field.spec.required %}— choose a column —{% else %}— none —{% endif %}</option>{% endif %}
+        {% for option in field.options %}<option value="{{ option }}" {% if field.selected|has:option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+      </select>
+
+    {% elif field.kind == "columns" or field.kind == "choices" %}
+      <div class="max-h-48 overflow-y-auto rounded-field border border-base-300 p-2" x-data>
+        {% if field.options|length > 4 %}
+        <div class="mb-1 flex gap-2 text-xs">
+          <button type="button" class="link link-hover" @click="$root.querySelectorAll('input[type=checkbox]').forEach(b => b.checked = true)" title="Tick every column">All</button>
+          <button type="button" class="link link-hover" @click="$root.querySelectorAll('input[type=checkbox]').forEach(b => b.checked = false)" title="Untick every column">None</button>
+        </div>
+        {% endif %}
+        <div class="grid gap-x-3 sm:grid-cols-2">
+        {% for option in field.options %}
+          <label class="label cursor-pointer justify-start gap-2 py-0.5 text-base-content">
+            <input type="checkbox" class="checkbox checkbox-xs" name="{{ field.input_name }}" value="{{ option }}" {% if field.selected|has:option %}checked{% endif %}>
+            <span class="truncate">{{ option }}</span>
+          </label>
+        {% empty %}
+          <p class="text-sm text-base-content/60">Choose a table first.</p>
+        {% endfor %}
+        </div>
+      </div>
+
+    {% elif field.kind == "boolean" %}
+      <label class="label cursor-pointer justify-start gap-2 text-base-content" title="{{ field.spec.help }}">
+        <input type="checkbox" class="toggle toggle-sm toggle-primary" name="{{ field.input_name }}" {% if field.value %}checked{% endif %}
+          {% if field.refresh %}hx-post="{{ redraw_url }}" hx-trigger="change" hx-target="#step-dialog-body" hx-include="#step-form"{% endif %}>
+        Yes
+      </label>
+
+    {% elif field.kind == "integer" or field.kind == "number" %}
+      <input type="number" name="{{ field.input_name }}" class="input w-40" value="{{ field.value|default_if_none:'' }}" title="{{ field.spec.help }}"
+        {% if field.kind == "integer" %}step="1"{% else %}step="any"{% endif %}
+        {% if field.spec.min_value is not None %}min="{{ field.spec.min_value }}"{% endif %}
+        {% if field.spec.max_value is not None %}max="{{ field.spec.max_value }}"{% endif %}
+        placeholder="{{ field.spec.placeholder }}">
+
+    {% elif field.kind == "expression" %}
+      <div x-data="{ insert(text) { const box = $refs.box; const at = box.selectionStart ?? box.value.length; box.value = box.value.slice(0, at) + text + box.value.slice(box.selectionEnd ?? at); box.focus(); box.selectionStart = box.selectionEnd = at + text.length; box.dispatchEvent(new Event('input', { bubbles: true })); } }" class="space-y-2">
+        <textarea x-ref="box" name="{{ field.input_name }}" rows="3" class="textarea w-full font-mono text-sm" placeholder="{{ field.spec.placeholder }}" title="{{ field.spec.help }}"
+          hx-post="{% url 'transform_data:formula_check' %}" hx-trigger="input changed delay:400ms, load" hx-target="#formula-check" hx-include="#step-form" hx-swap="innerHTML">{{ field.value|default_if_none:'' }}</textarea>
+        <div id="formula-check" aria-live="polite"></div>
+        <div>
+          <p class="mb-1 text-xs text-base-content/60">Click to add a column:</p>
+          <div class="flex flex-wrap gap-1">
+            {% for column in form.columns %}<button type="button" class="badge badge-outline cursor-pointer hover:badge-primary" @click="insert('[{{ column|escapejs }}]')" title="Add [{{ column }}] to the formula">{{ column }}</button>{% endfor %}
+          </div>
+        </div>
+        <details class="text-xs">
+          <summary class="cursor-pointer text-base-content/70" title="Functions you can use">Functions and examples</summary>
+          <div class="mt-1 flex flex-wrap gap-1">
+            {% for name, help_text in functions %}<button type="button" class="badge badge-ghost cursor-pointer" @click="insert('{{ name }}(')" title="{{ help_text }}">{{ name }}</button>{% endfor %}
+          </div>
+          <ul class="mt-2 list-disc space-y-0.5 pl-5 text-base-content/70">
+            <li><code>[Sales] - [Cost]</code> — maths with + − * /</li>
+            <li><code>IF([Qty] &gt; 100, "Bulk", "Retail")</code> — choose an answer</li>
+            <li><code>[First name] &amp; " " &amp; [Last name]</code> — join text</li>
+            <li><code>DAYS_BETWEEN([Invoice date], TODAY())</code> — dates</li>
+          </ul>
+        </details>
+      </div>
+
+    {% else %}
+      <input type="text" name="{{ field.input_name }}" class="input w-full" value="{{ field.value|default_if_none:'' }}" placeholder="{{ field.spec.placeholder }}" title="{{ field.spec.help }}">
+    {% endif %}
+    <p class="label whitespace-normal">{{ field.spec.help }}</p>
+  </fieldset>
+  {% endfor %}
+
+  {# ---- where the answer goes ---- #}
+  <fieldset class="fieldset" x-data="{ mode: '{{ form.output_mode }}' }">
+    <legend class="fieldset-legend">Put the result</legend>
+    <div class="flex flex-wrap gap-4">
+      <label class="label cursor-pointer gap-2 text-base-content" title="The table above is changed by this step">
+        <input type="radio" class="radio radio-sm" name="output_mode" value="in_place" x-model="mode" {% if form.output_mode != "new" %}checked{% endif %}> In the same table
+      </label>
+      <label class="label cursor-pointer gap-2 text-base-content" title="Keep the original table and make a new one with the result">
+        <input type="radio" class="radio radio-sm" name="output_mode" value="new" x-model="mode" {% if form.output_mode == "new" %}checked{% endif %}> In a new table
+      </label>
+    </div>
+    <input type="text" name="output_name" class="input w-full" x-show="mode === 'new'" x-cloak value="{{ form.output_name }}" placeholder="Name of the new table" maxlength="31" title="Up to 31 characters (it becomes an Excel sheet name)">
+  </fieldset>
+  </div>
+
+  <div class="modal-action mt-2">
+    <button type="button" class="btn btn-ghost" onclick="step_dialog.close()">Cancel</button>
+    <button class="btn btn-primary" :disabled="saving" title="Run this step and see the result">
+      <span class="loading loading-spinner loading-sm" x-show="saving" x-cloak></span>
+      {% if form.editing %}Save changes{% else %}Add step{% endif %}
+    </button>
+  </div>
+</form>
