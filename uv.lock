@@ -31,7 +31,7 @@ wheels = [
 [[package]]
 name = "data-core"
 version = "0.1.0"
-source = { editable = "../data-core" }
+source = { git = "https://github.com/saurabhtiki/data-core#41486c3326b02d694fb478242f55eca01eda24b8" }
 dependencies = [
     { name = "django" },
     { name = "duckdb" },
@@ -39,24 +39,6 @@ dependencies = [
     { name = "pandas" },
     { name = "psutil" },
     { name = "python-calamine" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "django", specifier = ">=5.2,<5.3" },
-    { name = "duckdb", specifier = ">=1.2" },
-    { name = "fsspec", specifier = ">=2024.1" },
-    { name = "pandas", specifier = ">=2.2" },
-    { name = "psutil", specifier = ">=6.0" },
-    { name = "python-calamine", specifier = ">=0.3" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "openpyxl", specifier = ">=3.1.5" },
-    { name = "pytest", specifier = ">=8.3" },
-    { name = "pytest-django", specifier = ">=4.9" },
-    { name = "ruff", specifier = ">=0.8" },
 ]
 
 [[package]]
@@ -524,7 +506,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "data-core", editable = "../data-core" },
+    { name = "data-core", git = "https://github.com/saurabhtiki/data-core" },
     { name = "django", specifier = ">=5.2,<5.3" },
     { name = "django-datatable", git = "https://github.com/saurabhtiki/django-datatable" },
     { name = "numpy", specifier = ">=2.0" },

@@ -32,9 +32,7 @@ packages = ["transform_data"]
 
 [tool.uv.sources]
 django-datatable = { git = "https://github.com/saurabhtiki/django-datatable" }
-# Local for now. Once data-core is on GitHub, switch to:
-# data-core = { git = "https://github.com/<owner>/data-core" }
-data-core = { path = "../data-core", editable = true }
+data-core = { git = "https://github.com/saurabhtiki/data-core" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

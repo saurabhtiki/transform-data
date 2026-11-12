@@ -4,9 +4,10 @@ Reusable Django add-on: upload CSV / Excel / JSON, change it step by step (join,
 
 ## Add it to a project
 ```
-uv add "transform-data @ git+https://github.com/<owner>/transform-data"
+uv add "transform-data @ git+https://github.com/saurabhtiki/transform-data"
 ```
-(For now it is used from this folder, with `data-core` from `../data-core`.)
+This also installs `data-core` from https://github.com/saurabhtiki/data-core.
+To change both packages together locally, run `uv add --editable ../data-core` (don't commit that).
 
 ```python
 INSTALLED_APPS += ["django.contrib.messages", "django_datatable", "transform_data"]
